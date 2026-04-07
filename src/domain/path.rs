@@ -12,39 +12,51 @@ pub enum Path {
 }
 
 impl Path {
-    pub fn as_str(&self, api_key: &str) -> String {
+    pub fn endpoint(&self) -> String {
+        match self {
+            Path::FindPlaces(_, _, _) => "findPlaces".to_string(),
+            Path::GetForecastInfo(_, _, _, _, _) => "getNumericForecastInfo".to_string(),
+        }
+    }
+
+    pub fn as_query_params(&self) -> Vec<(String, String)> {
         match self {
             Path::FindPlaces(place, types, lang) => {
-                format!(
-                    "findPlaces?location={}&types={}&API_KEY={}&lang={}&format=application/json",
-                    place.name,
-                    types
-                        .iter()
-                        .map(|t| t.to_string())
-                        .collect::<Vec<String>>()
-                        .join(","),
-                    api_key,
-                    lang
-                )
+                vec![
+                    ("location".to_string(), place.name.to_string()),
+                    (
+                        "types".to_string(),
+                        types
+                            .iter()
+                            .map(|t| t.to_string())
+                            .collect::<Vec<String>>()
+                            .join(","),
+                    ),
+                    ("lang".to_string(), lang.to_string()),
+                ]
             }
             Path::GetForecastInfo(location_ids, variables, start_time, end_time, lang) => {
-                format!(
-                    "getNumericForecastInfo?locationIds={}&variables={}&startTime={}&endTime={}&API_KEY={}&lang={}&format=application/json",
-                    location_ids
-                        .iter()
-                        .map(|l| l.to_string())
-                        .collect::<Vec<String>>()
-                        .join(","),
-                    variables
-                        .iter()
-                        .map(|v| v.as_str())
-                        .collect::<Vec<&str>>()
-                        .join(","),
-                    start_time,
-                    end_time,
-                    api_key,
-                    lang
-                )
+                vec![
+                    (
+                        "locationIds".to_string(),
+                        location_ids
+                            .iter()
+                            .map(|l| l.to_string())
+                            .collect::<Vec<String>>()
+                            .join(","),
+                    ),
+                    (
+                        "variables".to_string(),
+                        variables
+                            .iter()
+                            .map(|v| v.as_str())
+                            .collect::<Vec<&str>>()
+                            .join(","),
+                    ),
+                    ("startTime".to_string(), start_time.to_string()),
+                    ("endTime".to_string(), end_time.to_string()),
+                    ("lang".to_string(), lang.to_string()),
+                ]
             }
         }
     }

@@ -22,23 +22,29 @@ impl Client {
 
 impl Client {
     pub async fn get<T: DeserializeOwned>(&self, path: Path) -> Result<GetResponse<T>> {
+        let url = format!("{}/{}", self.get_base_url(), path.endpoint());
         let response = self
             .client
-            .request(Method::GET, self.get_url(path.clone()))
+            .request(Method::GET, url)
+            .query(&path.as_query_params())
+            .query(&[
+                ("API_KEY", self.api_key.clone()),
+                ("format", "application/json".to_string()),
+            ])
             .header(header::ACCEPT, "application/json")
             .header(header::CONTENT_TYPE, "application/json")
-            .header(header::AUTHORIZATION, format!("Bearer {}", self.api_key))
             .send()
             .await?;
 
         let status = response.status().as_u16();
         let body = response.text().await?;
+
         let body: T = serde_json::from_str(&body)?;
 
         Ok(GetResponse { status, body })
     }
 
-    fn get_url(&self, path: Path) -> String {
-        format!("https://{}/{}", self.base_url, path.as_str(&self.api_key))
+    fn get_base_url(&self) -> String {
+        format!("https://{}", self.base_url)
     }
 }
