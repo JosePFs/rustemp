@@ -38,21 +38,16 @@ impl ForecastRepository for MeteogaliciaRepository {
             .get::<FindPlacesBody>(path)
             .await
             .map_err(|_| None::<Location>);
-        let location = response
-            .ok()?
-            .body
-            .features
-            .into_iter()
-            .next()
-            .filter(|feature| {
-                feature
-                    .properties
-                    .name
-                    .to_lowercase()
-                    .contains(&place.name.to_lowercase())
-                    && feature.properties.municipality.to_lowercase()
-                        == place.municipality.as_str().to_lowercase()
-            })?;
+
+        let location = response.ok()?.body.features.into_iter().find(|feature| {
+            feature
+                .properties
+                .name
+                .to_lowercase()
+                .contains(&place.name.to_lowercase())
+                && feature.properties.municipality.to_lowercase()
+                    == place.municipality.as_str().to_lowercase()
+        })?;
 
         Some(Location::new(
             location.properties.id,
