@@ -8,7 +8,7 @@ use crate::{
             Day, ForecastInfo, PlaceDays, PlaceDaysStatus,
             StringOrFloat as ForecastInfoStringOrFloat, Value, ValueDay,
         },
-        location::{Location, Name, Place},
+        location::{Geometry, GeometryCoordinates, GeometryType, Location, Name, Place},
         municipality::Municipality,
         path::Path,
         repository::ForecastRepository,
@@ -16,7 +16,10 @@ use crate::{
     },
     infrastructure::meteogalicia::{
         client::Client,
-        dtos::{FindPlacesBody, GetForecastInfoBody, StringOrFloat},
+        dtos::{
+            FindPlacesBody, GeometryType as MeteogaliciaGeometryType, GetForecastInfoBody,
+            StringOrFloat,
+        },
     },
 };
 
@@ -33,27 +36,43 @@ impl MeteogaliciaRepository {
 #[async_trait]
 impl ForecastRepository for MeteogaliciaRepository {
     async fn find_location(&self, path: Path, place: Place) -> Option<Location> {
-        let response = self
-            .client
-            .get::<FindPlacesBody>(path)
-            .await
-            .map_err(|_| None::<Location>);
+        let response = self.client.get::<FindPlacesBody>(path).await.map_err(|e| {
+            log::error!("Error finding location: {:?}", e);
+            None::<Location>
+        });
 
-        let location = response.ok()?.body.features.into_iter().find(|feature| {
-            feature
-                .properties
-                .name
-                .to_lowercase()
-                .contains(&place.name.to_lowercase())
-                && feature.properties.municipality.to_lowercase()
-                    == place.municipality.as_str().to_lowercase()
-        })?;
+        let features = response.ok()?.body.features;
+        let location = features
+            .iter()
+            .find(|feature| {
+                feature.properties.name.to_lowercase() == place.name.to_lowercase()
+                    && feature.properties.municipality.to_lowercase()
+                        == place.municipality.as_str().to_lowercase()
+            })
+            .or_else(|| {
+                features.iter().find(|feature| {
+                    feature
+                        .properties
+                        .name
+                        .to_lowercase()
+                        .contains(&place.name.to_lowercase())
+                        && feature.properties.municipality.to_lowercase()
+                            == place.municipality.as_str().to_lowercase()
+                })
+            })?;
 
         Some(Location::new(
-            location.properties.id,
+            location.properties.id.clone(),
             Place::new(
                 Name::from_str(&location.properties.name),
-                Municipality::from(location.properties.municipality),
+                Municipality::from(location.properties.municipality.clone()),
+            ),
+            Geometry::new(
+                location.geometry.r#type.as_ref().into(),
+                GeometryCoordinates::new(
+                    location.geometry.coordinates.longitude,
+                    location.geometry.coordinates.latitude,
+                ),
             ),
         ))
     }
@@ -64,7 +83,10 @@ impl ForecastRepository for MeteogaliciaRepository {
                 let forecast_info: ForecastInfo = response.body.into();
                 Some(forecast_info)
             }
-            Err(_) => None,
+            Err(e) => {
+                log::error!("Error getting forecast info: {:?}", e);
+                None
+            }
         }
     }
 }
@@ -98,19 +120,55 @@ impl From<GetForecastInfoBody> for ForecastInfo {
                                     .map(|value| Value {
                                         time: Time::from(value.time_instant.0.clone()),
                                         value: match &value.value {
-                                            StringOrFloat::String(value) => {
+                                            Some(StringOrFloat::String(value)) => {
                                                 ForecastInfoStringOrFloat::String(value.clone())
                                             }
-                                            StringOrFloat::Float(value) => {
+                                            Some(StringOrFloat::Float(value)) => {
                                                 ForecastInfoStringOrFloat::Float(value.clone())
+                                            }
+                                            None if value.direction_value.is_some()
+                                                && value.module_value.is_some() =>
+                                            {
+                                                ForecastInfoStringOrFloat::FloatAndFloat(
+                                                    value.module_value.unwrap_or(0.0),
+                                                    value.direction_value.unwrap_or(0.0),
+                                                )
+                                            }
+                                            None => {
+                                                ForecastInfoStringOrFloat::String("".to_string())
                                             }
                                         },
                                     })
                                     .collect(),
+                                units: match &variable.units {
+                                    Some(units) => units.clone(),
+                                    None => match &variable.module_units {
+                                        Some(units) => format!(
+                                            "{}-{}",
+                                            units.clone(),
+                                            &variable
+                                                .direction_units
+                                                .clone()
+                                                .unwrap_or("".to_string())
+                                        ),
+                                        None => "".to_string(),
+                                    },
+                                },
                             })
                             .collect(),
                     })
                     .collect(),
+                geometry: Geometry::new(
+                    match feature.geometry.r#type {
+                        MeteogaliciaGeometryType::Point => GeometryType::Point,
+                        MeteogaliciaGeometryType::LineString => GeometryType::LineString,
+                        MeteogaliciaGeometryType::Polygon => GeometryType::Polygon,
+                    },
+                    GeometryCoordinates::new(
+                        feature.geometry.coordinates.longitude,
+                        feature.geometry.coordinates.latitude,
+                    ),
+                ),
             })
             .collect();
         ForecastInfo { places }

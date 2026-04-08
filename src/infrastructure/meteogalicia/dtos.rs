@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 
 use crate::domain::{
     forecast_info::ForecastInfo, forecast_info::StringOrFloat as ForecastInfoStringOrFloat,
@@ -13,8 +13,72 @@ pub struct FindPlacesBody {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub enum GeometryType {
+    #[serde(rename = "Point")]
+    Point,
+    #[serde(rename = "LineString")]
+    LineString,
+    #[serde(rename = "Polygon")]
+    Polygon,
+}
+
+impl From<&str> for GeometryType {
+    fn from(value: &str) -> Self {
+        match value {
+            "Point" => GeometryType::Point,
+            "LineString" => GeometryType::LineString,
+            "Polygon" => GeometryType::Polygon,
+            _ => GeometryType::Point,
+        }
+    }
+}
+
+impl From<GeometryType> for &str {
+    fn from(value: GeometryType) -> Self {
+        match value {
+            GeometryType::Point => "Point",
+            GeometryType::LineString => "LineString",
+            GeometryType::Polygon => "Polygon",
+        }
+    }
+}
+
+impl AsRef<str> for GeometryType {
+    fn as_ref(&self) -> &str {
+        match self {
+            GeometryType::Point => "Point",
+            GeometryType::LineString => "LineString",
+            GeometryType::Polygon => "Polygon",
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct GeometryCoordinates {
+    pub longitude: f64,
+    pub latitude: f64,
+}
+
+impl<'de> Deserialize<'de> for GeometryCoordinates {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let [longitude, latitude] = <[f64; 2]>::deserialize(deserializer)?;
+        Ok(Self {
+            longitude,
+            latitude,
+        })
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Geometry {
+    pub r#type: GeometryType,
+    pub coordinates: GeometryCoordinates,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Feature {
     pub properties: Properties,
+    pub geometry: Geometry,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -24,6 +88,11 @@ pub struct Properties {
     pub id: String,
     #[serde(default)]
     pub days: Vec<Day>,
+    pub units: Option<String>,
+    #[serde(rename = "moduleUnits")]
+    pub module_units: Option<String>,
+    #[serde(rename = "directionUnits")]
+    pub direction_units: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -54,13 +123,22 @@ pub struct GetForecastInfoBody {
 pub struct Variable {
     pub name: String,
     pub values: Vec<Value>,
+    pub units: Option<String>,
+    #[serde(rename = "moduleUnits")]
+    pub module_units: Option<String>,
+    #[serde(rename = "directionUnits")]
+    pub direction_units: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Value {
     #[serde(rename = "timeInstant")]
     pub time_instant: ValueTimeInstant,
-    pub value: StringOrFloat,
+    pub value: Option<StringOrFloat>,
+    #[serde(rename = "directionValue")]
+    pub direction_value: Option<f64>,
+    #[serde(rename = "moduleValue")]
+    pub module_value: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -89,6 +167,7 @@ pub struct PlaceOutput {
     pub name: String,
     pub municipality: String,
     pub days: Vec<DayOutput>,
+    pub units: HashMap<String, String>,
     pub status: String,
 }
 
@@ -112,28 +191,31 @@ impl From<ForecastInfo> for ForecastOutput {
             .map(|place_days| {
                 let days = place_days
                     .days
-                    .into_iter()
+                    .iter()
                     .map(|day| {
                         let mut values_map: HashMap<String, Vec<ValueOutput>> = HashMap::new();
 
-                        for value_day in day.values {
+                        for value_day in &day.values {
                             let values = value_day
                                 .values
-                                .into_iter()
+                                .iter()
                                 .map(|v| ValueOutput {
                                     time: v.time.to_string(),
-                                    value: match v.value {
+                                    value: match &v.value {
                                         ForecastInfoStringOrFloat::Float(f) => {
                                             serde_json::json!(f)
                                         }
                                         ForecastInfoStringOrFloat::String(s) => {
                                             serde_json::json!(s)
                                         }
+                                        ForecastInfoStringOrFloat::FloatAndFloat(f1, f2) => {
+                                            serde_json::json!({ "speed": f1, "direction": f2 })
+                                        }
                                     },
                                 })
                                 .collect();
 
-                            values_map.insert(value_day.name, values);
+                            values_map.insert(value_day.name.clone(), values);
                         }
 
                         DayOutput {
@@ -147,6 +229,12 @@ impl From<ForecastInfo> for ForecastOutput {
                     name: place_days.place.name.to_string(),
                     municipality: place_days.place.municipality.to_string(),
                     days,
+                    units: place_days
+                        .days
+                        .iter()
+                        .flat_map(|day| day.values.iter())
+                        .map(|value_day| (value_day.name.clone(), value_day.units.clone()))
+                        .collect::<HashMap<String, String>>(),
                     status: place_days.status.to_string(),
                 }
             })

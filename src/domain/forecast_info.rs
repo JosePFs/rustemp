@@ -1,10 +1,11 @@
 use std::fmt::{Display, Formatter};
 
-use crate::domain::location::Place;
+use crate::domain::location::{Geometry, Place};
 use crate::domain::time::Time;
 
 #[derive(Debug, Clone)]
 pub enum StringOrFloat {
+    FloatAndFloat(f64, f64),
     String(String),
     Float(f64),
 }
@@ -19,6 +20,7 @@ pub struct Value {
 pub struct ValueDay {
     pub name: String,
     pub values: Vec<Value>,
+    pub units: String,
 }
 
 #[derive(Debug, Clone)]
@@ -54,14 +56,16 @@ pub struct PlaceDays {
     pub place: Place,
     pub days: Vec<Day>,
     pub status: PlaceDaysStatus,
+    pub geometry: Geometry,
 }
 
 impl PlaceDays {
-    pub fn new(place: Place, days: Vec<Day>, status: PlaceDaysStatus) -> Self {
+    pub fn new(place: Place, days: Vec<Day>, status: PlaceDaysStatus, geometry: Geometry) -> Self {
         Self {
             place,
             days,
             status,
+            geometry,
         }
     }
 }

@@ -6,7 +6,7 @@ use crate::{
         error::Result,
         forecast_info::{ForecastInfo, PlaceDays, PlaceDaysStatus},
         lang::Lang,
-        location::{Location, Place, PlaceType},
+        location::{Geometry, Location, Place, PlaceType},
         parameter::Parameter,
         path::Path,
         repository::ForecastRepository,
@@ -81,6 +81,7 @@ impl<R: ForecastRepository> FindAndForecastInfo<R> {
                                 location.place.clone(),
                                 Vec::new(),
                                 PlaceDaysStatus::ForecastInfoNotFound,
+                                Geometry::default(),
                             )
                         })
                         .collect();
@@ -92,7 +93,12 @@ impl<R: ForecastRepository> FindAndForecastInfo<R> {
                 let place_days_not_found = not_found_locations
                     .iter()
                     .map(|place| {
-                        PlaceDays::new(place.clone(), Vec::new(), PlaceDaysStatus::LocationNotFound)
+                        PlaceDays::new(
+                            place.clone(),
+                            Vec::new(),
+                            PlaceDaysStatus::LocationNotFound,
+                            Geometry::default(),
+                        )
                     })
                     .collect();
                 forecast_infos.push(ForecastInfo::new(place_days_not_found));

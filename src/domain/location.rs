@@ -38,6 +38,78 @@ impl Display for Name {
 }
 
 #[derive(Debug, Clone)]
+pub struct GeometryCoordinates {
+    pub longitude: f64,
+    pub latitude: f64,
+}
+
+impl Default for GeometryCoordinates {
+    fn default() -> Self {
+        Self {
+            longitude: 0.0,
+            latitude: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum GeometryType {
+    Point,
+    LineString,
+    Polygon,
+}
+
+impl From<&str> for GeometryType {
+    fn from(value: &str) -> Self {
+        match value {
+            "Point" => GeometryType::Point,
+            "LineString" => GeometryType::LineString,
+            "Polygon" => GeometryType::Polygon,
+            _ => GeometryType::Point,
+        }
+    }
+}
+
+impl Default for GeometryType {
+    fn default() -> Self {
+        GeometryType::Point
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Geometry {
+    pub r#type: GeometryType,
+    pub coordinates: GeometryCoordinates,
+}
+
+impl Geometry {
+    pub fn new(r#type: GeometryType, coordinates: GeometryCoordinates) -> Self {
+        Self {
+            r#type,
+            coordinates,
+        }
+    }
+}
+
+impl Default for Geometry {
+    fn default() -> Self {
+        Self {
+            r#type: GeometryType::default(),
+            coordinates: GeometryCoordinates::default(),
+        }
+    }
+}
+
+impl GeometryCoordinates {
+    pub fn new(longitude: f64, latitude: f64) -> Self {
+        Self {
+            longitude,
+            latitude,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Place {
     pub name: Name,
     pub municipality: Municipality,
@@ -74,11 +146,16 @@ impl Display for PlaceType {
 pub struct Location {
     pub id: String,
     pub place: Place,
+    pub geometry: Geometry,
 }
 
 impl Location {
-    pub fn new(id: String, place: Place) -> Self {
-        Self { id, place }
+    pub fn new(id: String, place: Place, geometry: Geometry) -> Self {
+        Self {
+            id,
+            place,
+            geometry,
+        }
     }
 }
 

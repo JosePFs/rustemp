@@ -17,7 +17,7 @@ pub struct ForecastArgs {
     #[arg(short, long, required = true)]
     pub end_time: Time,
 
-    #[arg(short, long, num_args = 1.., action = ArgAction::Append, default_value = "temperature,relative_humidity,precipitation_amount")]
+    #[arg(short, long, num_args = 1.., action = ArgAction::Append, default_value = "temperature,relative_humidity,precipitation_amount,wind")]
     pub data: Vec<Parameter>,
 
     #[arg(short, long, num_args = 1.., action = ArgAction::Append, default_value = "locality,beach")]

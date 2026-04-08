@@ -7,8 +7,7 @@ use crate::{
         location::{Name, Place},
         municipality::Municipality,
     },
-    interface::find_args::FindArgs,
-    interface::forecast_args::ForecastArgs,
+    interface::{find_args::FindArgs, forecast_args::ForecastArgs},
 };
 
 #[derive(Debug, Clone)]
