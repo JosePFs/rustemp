@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub async fn run_find_and_forecast(forecast_args: ForecastArgs) -> Result<Vec<ForecastInfo>> {
-    let batch_forecast_info = bootstrap_find_and_forecast_info()?;
+    let batch_forecast_info = bootstrap_find_and_forecast_info().await?;
 
     let forecast_info = batch_forecast_info
         .execute(
@@ -33,7 +33,7 @@ pub async fn run_find_and_forecast(forecast_args: ForecastArgs) -> Result<Vec<Fo
 }
 
 pub async fn run_find(find_args: FindArgs) -> Option<Location> {
-    let find_places = bootstrap_find_places().ok()?;
+    let find_places = bootstrap_find_places().await.ok()?;
     find_places
         .execute(
             Path::FindPlaces(

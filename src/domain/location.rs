@@ -59,6 +59,16 @@ pub enum GeometryType {
     Polygon,
 }
 
+impl AsRef<str> for GeometryType {
+    fn as_ref(&self) -> &str {
+        match self {
+            GeometryType::Point => "Point",
+            GeometryType::LineString => "LineString",
+            GeometryType::Polygon => "Polygon",
+        }
+    }
+}
+
 impl From<&str> for GeometryType {
     fn from(value: &str) -> Self {
         match value {
@@ -88,6 +98,10 @@ impl Geometry {
             r#type,
             coordinates,
         }
+    }
+
+    pub fn as_ref(&self) -> &GeometryType {
+        &self.r#type
     }
 }
 

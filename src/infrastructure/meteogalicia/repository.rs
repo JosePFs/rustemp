@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
 
 use crate::{
@@ -8,7 +6,10 @@ use crate::{
             Day, ForecastInfo, PlaceDays, PlaceDaysStatus,
             StringOrFloat as ForecastInfoStringOrFloat, Value, ValueDay,
         },
-        location::{Geometry, GeometryCoordinates, GeometryType, Location, Name, Place},
+        location::{
+            Geometry as DomainGeometry, GeometryCoordinates as DomainGeometryCoordinates,
+            GeometryType as DomainGeometryType, Location, Name, Place,
+        },
         municipality::Municipality,
         path::Path,
         repository::ForecastRepository,
@@ -17,18 +18,18 @@ use crate::{
     infrastructure::meteogalicia::{
         client::Client,
         dtos::{
-            FindPlacesBody, GeometryType as MeteogaliciaGeometryType, GetForecastInfoBody,
-            StringOrFloat,
+            Feature, FindPlacesBody, Geometry, GeometryCoordinates, GeometryType,
+            GetForecastInfoBody, Properties, StringOrFloat,
         },
     },
 };
 
 pub struct MeteogaliciaRepository {
-    client: Arc<Client>,
+    client: Client,
 }
 
 impl MeteogaliciaRepository {
-    pub fn new(client: Arc<Client>) -> Self {
+    pub fn new(client: Client) -> Self {
         Self { client }
     }
 }
@@ -61,33 +62,75 @@ impl ForecastRepository for MeteogaliciaRepository {
                 })
             })?;
 
-        Some(Location::new(
-            location.properties.id.clone(),
-            Place::new(
-                Name::from_str(&location.properties.name),
-                Municipality::from(location.properties.municipality.clone()),
-            ),
-            Geometry::new(
-                location.geometry.r#type.as_ref().into(),
-                GeometryCoordinates::new(
-                    location.geometry.coordinates.longitude,
-                    location.geometry.coordinates.latitude,
-                ),
-            ),
-        ))
+        Some(location.into())
     }
 
     async fn get_forecast_info(&self, path: Path) -> Option<ForecastInfo> {
         match self.client.get::<GetForecastInfoBody>(path).await {
-            Ok(response) => {
-                let forecast_info: ForecastInfo = response.body.into();
-                Some(forecast_info)
-            }
+            Ok(response) => Some(response.body.into()),
             Err(e) => {
                 log::error!("Error getting forecast info: {:?}", e);
                 None
             }
         }
+    }
+}
+
+impl From<&Feature> for Location {
+    fn from(feature: &Feature) -> Self {
+        Location::new(
+            feature.properties.id.clone(),
+            Place::new(
+                Name::from(feature.properties.name.clone()),
+                Municipality::from(feature.properties.municipality.clone()),
+            ),
+            DomainGeometry::new(
+                feature.geometry.r#type.as_ref().into(),
+                DomainGeometryCoordinates::new(
+                    feature.geometry.coordinates.longitude,
+                    feature.geometry.coordinates.latitude,
+                ),
+            ),
+        )
+    }
+}
+
+impl From<Feature> for Location {
+    fn from(feature: Feature) -> Self {
+        Location::from(&feature)
+    }
+}
+
+impl From<&Location> for Feature {
+    fn from(location: &Location) -> Self {
+        Feature {
+            properties: Properties {
+                name: location.place.name.to_string(),
+                municipality: location.place.municipality.to_string(),
+                id: location.id.clone(),
+                days: vec![],
+                units: None,
+                module_units: None,
+                direction_units: None,
+            },
+            geometry: Geometry {
+                r#type: match location.geometry.r#type {
+                    DomainGeometryType::Point => GeometryType::Point,
+                    DomainGeometryType::LineString => GeometryType::LineString,
+                    DomainGeometryType::Polygon => GeometryType::Polygon,
+                },
+                coordinates: GeometryCoordinates {
+                    longitude: location.geometry.coordinates.longitude,
+                    latitude: location.geometry.coordinates.latitude,
+                },
+            },
+        }
+    }
+}
+
+impl From<Location> for Feature {
+    fn from(location: Location) -> Self {
+        Feature::from(&location)
     }
 }
 
@@ -158,13 +201,13 @@ impl From<GetForecastInfoBody> for ForecastInfo {
                             .collect(),
                     })
                     .collect(),
-                geometry: Geometry::new(
+                geometry: DomainGeometry::new(
                     match feature.geometry.r#type {
-                        MeteogaliciaGeometryType::Point => GeometryType::Point,
-                        MeteogaliciaGeometryType::LineString => GeometryType::LineString,
-                        MeteogaliciaGeometryType::Polygon => GeometryType::Polygon,
+                        GeometryType::Point => DomainGeometryType::Point,
+                        GeometryType::LineString => DomainGeometryType::LineString,
+                        GeometryType::Polygon => DomainGeometryType::Polygon,
                     },
-                    GeometryCoordinates::new(
+                    DomainGeometryCoordinates::new(
                         feature.geometry.coordinates.longitude,
                         feature.geometry.coordinates.latitude,
                     ),

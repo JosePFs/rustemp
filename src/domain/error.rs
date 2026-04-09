@@ -32,4 +32,13 @@ impl From<std::io::Error> for Error {
     }
 }
 
+impl From<Box<dyn std::error::Error>> for Error {
+    fn from(error: Box<dyn std::error::Error>) -> Self {
+        Error::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            error.to_string(),
+        ))
+    }
+}
+
 pub type Result<T> = std::result::Result<T, Error>;

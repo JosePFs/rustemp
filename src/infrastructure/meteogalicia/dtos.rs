@@ -12,7 +12,7 @@ pub struct FindPlacesBody {
     pub features: Vec<Feature>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum GeometryType {
     #[serde(rename = "Point")]
     Point,
@@ -33,16 +33,6 @@ impl From<&str> for GeometryType {
     }
 }
 
-impl From<GeometryType> for &str {
-    fn from(value: GeometryType) -> Self {
-        match value {
-            GeometryType::Point => "Point",
-            GeometryType::LineString => "LineString",
-            GeometryType::Polygon => "Polygon",
-        }
-    }
-}
-
 impl AsRef<str> for GeometryType {
     fn as_ref(&self) -> &str {
         match self {
@@ -53,7 +43,7 @@ impl AsRef<str> for GeometryType {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct GeometryCoordinates {
     pub longitude: f64,
     pub latitude: f64,
@@ -61,27 +51,42 @@ pub struct GeometryCoordinates {
 
 impl<'de> Deserialize<'de> for GeometryCoordinates {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let [longitude, latitude] = <[f64; 2]>::deserialize(deserializer)?;
-        Ok(Self {
-            longitude,
-            latitude,
-        })
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Helper {
+            Array([f64; 2]),
+            Object { longitude: f64, latitude: f64 },
+        }
+
+        match Helper::deserialize(deserializer)? {
+            Helper::Array([longitude, latitude]) => Ok(Self {
+                longitude,
+                latitude,
+            }),
+            Helper::Object {
+                longitude,
+                latitude,
+            } => Ok(Self {
+                longitude,
+                latitude,
+            }),
+        }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Geometry {
     pub r#type: GeometryType,
     pub coordinates: GeometryCoordinates,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Feature {
     pub properties: Properties,
     pub geometry: Geometry,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Properties {
     pub name: String,
     pub municipality: String,
@@ -95,20 +100,20 @@ pub struct Properties {
     pub direction_units: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Day {
     #[serde(rename = "timePeriod")]
     pub time_period: TimePeriod,
     pub variables: Vec<Variable>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimePeriod {
     pub begin: TimeInstant,
     pub end: TimeInstant,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeInstant {
     #[serde(rename = "timeInstant")]
     pub value: String,
@@ -119,7 +124,7 @@ pub struct GetForecastInfoBody {
     pub features: Vec<Feature>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Variable {
     pub name: String,
     pub values: Vec<Value>,
@@ -130,7 +135,7 @@ pub struct Variable {
     pub direction_units: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Value {
     #[serde(rename = "timeInstant")]
     pub time_instant: ValueTimeInstant,
@@ -141,10 +146,10 @@ pub struct Value {
     pub module_value: Option<f64>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValueTimeInstant(pub String);
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum StringOrFloat {
     String(String),

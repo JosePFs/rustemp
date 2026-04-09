@@ -1,6 +1,9 @@
 use clap::Parser;
 
-use std::str::FromStr;
+use std::{
+    fmt::{Display, Formatter},
+    str::FromStr,
+};
 
 use crate::{
     domain::{
@@ -35,6 +38,12 @@ impl From<PlacePair> for Place {
             Name::from(value.location),
             Municipality::from(value.municipality),
         )
+    }
+}
+
+impl Display for PlacePair {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", self.location, self.municipality)
     }
 }
 
