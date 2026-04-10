@@ -4,11 +4,18 @@ pub enum Error {
     Serde(serde_json::Error),
     Io(std::io::Error),
     NotFound(String),
+    BadRequest(String),
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        match self {
+            Error::Reqwest(e) => write!(f, "Reqwest error: {}", e.to_string()),
+            Error::Serde(e) => write!(f, "Serde error: {}", e.to_string()),
+            Error::Io(e) => write!(f, "IO error: {}", e.to_string()),
+            Error::NotFound(e) => write!(f, "Not found error: {}", e),
+            Error::BadRequest(e) => write!(f, "Bad request error: {}", e),
+        }
     }
 }
 

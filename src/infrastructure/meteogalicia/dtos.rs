@@ -7,8 +7,8 @@ use crate::domain::{
     location::Location,
 };
 
-#[derive(Debug, Deserialize)]
-pub struct FindPlacesBody {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResponseBody {
     pub features: Vec<Feature>,
 }
 
@@ -117,11 +117,6 @@ pub struct TimePeriod {
 pub struct TimeInstant {
     #[serde(rename = "timeInstant")]
     pub value: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GetForecastInfoBody {
-    pub features: Vec<Feature>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

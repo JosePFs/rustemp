@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 use crate::domain::{
     lang::Lang,
     location::{Location, Place, PlaceType},
@@ -66,5 +68,23 @@ impl Path {
             Path::FindPlaces(_, _, lang) => lang.clone(),
             Path::GetForecastInfo(_, _, _, _, lang) => lang.clone(),
         }
+    }
+
+    fn to_string(&self) -> String {
+        format!(
+            "{}:{}",
+            self.endpoint(),
+            self.as_query_params()
+                .iter()
+                .map(|(key, value)| format!("{}={}", key, value))
+                .collect::<Vec<String>>()
+                .join("&"),
+        )
+    }
+}
+
+impl Display for Path {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string())
     }
 }

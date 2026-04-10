@@ -17,10 +17,7 @@ use crate::{
     },
     infrastructure::meteogalicia::{
         client::Client,
-        dtos::{
-            Feature, FindPlacesBody, Geometry, GeometryCoordinates, GeometryType,
-            GetForecastInfoBody, Properties, StringOrFloat,
-        },
+        dtos::{Feature, GeometryType, ResponseBody, StringOrFloat},
     },
 };
 
@@ -37,13 +34,13 @@ impl MeteogaliciaRepository {
 #[async_trait]
 impl ForecastRepository for MeteogaliciaRepository {
     async fn find_location(&self, path: Path, place: Place) -> Option<Location> {
-        let response = self.client.get::<FindPlacesBody>(path).await.map_err(|e| {
+        let response = self.client.get(path).await.map_err(|e| {
             log::error!("Error finding location: {:?}", e);
             None::<Location>
         });
 
         let features = response.ok()?.body.features;
-        let location = features
+        let location_feature = features
             .iter()
             .find(|feature| {
                 feature.properties.name.to_lowercase() == place.name.to_lowercase()
@@ -62,14 +59,14 @@ impl ForecastRepository for MeteogaliciaRepository {
                 })
             })?;
 
-        Some(location.into())
+        Some(location_feature.into())
     }
 
     async fn get_forecast_info(&self, path: Path) -> Option<ForecastInfo> {
-        match self.client.get::<GetForecastInfoBody>(path).await {
+        match self.client.get(path).await {
             Ok(response) => Some(response.body.into()),
             Err(e) => {
-                log::error!("Error getting forecast info: {:?}", e);
+                log::error!("Error getting forecast info: {}", e.to_string());
                 None
             }
         }
@@ -95,55 +92,16 @@ impl From<&Feature> for Location {
     }
 }
 
-impl From<Feature> for Location {
-    fn from(feature: Feature) -> Self {
-        Location::from(&feature)
-    }
-}
-
-impl From<&Location> for Feature {
-    fn from(location: &Location) -> Self {
-        Feature {
-            properties: Properties {
-                name: location.place.name.to_string(),
-                municipality: location.place.municipality.to_string(),
-                id: location.id.clone(),
-                days: vec![],
-                units: None,
-                module_units: None,
-                direction_units: None,
-            },
-            geometry: Geometry {
-                r#type: match location.geometry.r#type {
-                    DomainGeometryType::Point => GeometryType::Point,
-                    DomainGeometryType::LineString => GeometryType::LineString,
-                    DomainGeometryType::Polygon => GeometryType::Polygon,
-                },
-                coordinates: GeometryCoordinates {
-                    longitude: location.geometry.coordinates.longitude,
-                    latitude: location.geometry.coordinates.latitude,
-                },
-            },
-        }
-    }
-}
-
-impl From<Location> for Feature {
-    fn from(location: Location) -> Self {
-        Feature::from(&location)
-    }
-}
-
-impl From<GetForecastInfoBody> for ForecastInfo {
-    fn from(body: GetForecastInfoBody) -> Self {
+impl From<ResponseBody> for ForecastInfo {
+    fn from(body: ResponseBody) -> Self {
         let places: Vec<PlaceDays> = body
             .features
-            .into_iter()
+            .iter()
             .map(|feature| PlaceDays {
                 status: PlaceDaysStatus::Found,
                 place: Place::new(
-                    Name::from(feature.properties.name),
-                    Municipality::from(feature.properties.municipality),
+                    Name::from(feature.properties.name.clone()),
+                    Municipality::from(feature.properties.municipality.clone()),
                 ),
                 days: feature
                     .properties

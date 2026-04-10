@@ -11,16 +11,16 @@ use tokio::{
     io::{AsyncReadExt as _, AsyncWriteExt as _},
 };
 
-use crate::infrastructure::meteogalicia::dtos::Feature;
+use crate::infrastructure::meteogalicia::dtos::ResponseBody;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheEntry {
-    pub data: Feature,
+    pub data: ResponseBody,
     pub expires_at: u64,
 }
 
 impl CacheEntry {
-    pub fn from_data(data: Feature) -> Self {
+    pub fn from_data(data: ResponseBody) -> Self {
         Self {
             data,
             expires_at: SystemTime::now()
@@ -31,7 +31,7 @@ impl CacheEntry {
         }
     }
 
-    pub fn new(data: Feature, expires_at: u64) -> Self {
+    pub fn new(data: ResponseBody, expires_at: u64) -> Self {
         Self { data, expires_at }
     }
 
