@@ -38,7 +38,10 @@ impl Client {
         }
         .map(|entry| entry.data)
         {
-            return Ok(GetResponse { status: 200, body });
+            return Ok(GetResponse {
+                status: StatusCode::OK.as_u16(),
+                body,
+            });
         }
 
         let response = self
